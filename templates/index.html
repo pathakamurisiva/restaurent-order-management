@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Bella Vista{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_action %}
+  <div class="d-flex gap-2 flex-wrap justify-content-end">
+    <a class="btn btn-lux-accent" href="{{ url_for('kitchen') }}">
+      <i class="bi bi-fire me-2"></i>Open Kitchen
+    </a>
+    <button class="btn btn-outline-light" id="share-customer-view" data-customer-url="{{ url_for('customer_tables', _external=True) }}">
+      <i class="bi bi-link-45deg me-2"></i>Share with Customers
+    </button>
+  </div>
+{% endblock %}
+
+{% block content %}
+  <div class="hero-banner animate-fadeInDown" style="background-image:url('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1400&q=80');">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="hero-title">Welcome to Bella Vista</div>
+      <div class="hero-subtitle">Manage your restaurant with elegance</div>
+    </div>
+  </div>
+
+  <section class="stats-grid mb-4">
+    <div class="stat-card">
+      <div class="stat-icon stat-icon-blue"><i class="bi bi-receipt"></i></div>
+      <div class="stat-label">Total Orders Today</div>
+      <div class="stat-value count-up" data-target="{{ total_orders_today }}" data-float="false">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon stat-icon-gold"><i class="bi bi-currency-rupee"></i></div>
+      <div class="stat-label">Today's Revenue</div>
+      <div class="stat-value count-up" data-target="{{ todays_revenue }}" data-float="true">₹ 0.00</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon stat-icon-orange"><i class="bi bi-clock-history"></i></div>
+      <div class="stat-label">Pending Orders</div>
+      <div class="stat-value count-up" data-target="{{ pending_orders_count }}" data-float="false">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon stat-icon-green"><i class="bi bi-grid-3x3-gap-fill"></i></div>
+      <div class="stat-label">Tables Occupied</div>
+      <div class="stat-value count-up" data-target="{{ tables_occupied }}" data-float="false">0</div>
+    </div>
+  </section>
+
+  <section class="quick-actions mb-4">
+    <div class="section-title">Quick Actions</div>
+    <div class="quick-actions-row">
+      <a class="btn btn-lux-grad-blue" href="{{ url_for('menu') }}">
+        <i class="bi bi-basket-fill me-2"></i>Manage Menu
+      </a>
+      <a class="btn btn-lux-grad-green" href="{{ url_for('tables') }}">
+        <i class="bi bi-grid-3x3-gap-fill me-2"></i>View Tables
+      </a>
+      <a class="btn btn-lux-grad-orange" href="{{ url_for('orders') }}">
+        <i class="bi bi-receipt-cutoff me-2"></i>View Orders
+      </a>
+    </div>
+  </section>
+
+  <section class="recent-orders">
+    <div class="section-title mb-3">Recent Orders</div>
+    <div class="lux-card p-0 overflow-hidden">
+      <div class="recent-table-wrap">
+        <table class="table table-dark table-striped mb-0 recent-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Table</th>
+              <th>Items</th>
+              <th>Total</th>
+              <th>Time</th>
+              <th>Status</th>
+              <th style="width: 120px;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="recent-orders-body">
+            <tr><td colspan="7" class="text-muted text-center py-4">Loading recent orders...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Dashboard recent orders population (frontend-only).
+    (function () {
+      const tbody = document.getElementById("recent-orders-body");
+      if (!tbody) return;
+      fetch("/api/orders")
+        .then((r) => r.json())
+        .then((payload) => {
+          const orders = (payload && payload.orders) ? payload.orders : [];
+          if (!orders.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">No orders yet.</td></tr>';
+            return;
+          }
+          const limit = 6;
+          const top = orders.slice(0, limit);
+          tbody.innerHTML = top.map((o, idx) => {
+            const itemsCount = (o.items || []).reduce((acc, it) => acc + (it.quantity || 0), 0);
+            const total = o.grand_total || o.subtotal_amount || "0.00";
+            const status = String(o.status || "pending");
+            const badgeClass =
+              status === "pending" ? "badge badge-pill badge-amber" :
+              status === "preparing" ? "badge badge-pill badge-blue" :
+              status === "served" ? "badge badge-pill badge-green" :
+              "badge badge-pill badge-gray";
+            const createdAt = o.created_at ? new Date(o.created_at) : null;
+            const timeText = createdAt ? createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+            return `
+              <tr style="animation-delay:${idx * 0.1}s">
+                <td>#${o.id}</td>
+                <td>${o.table_id}</td>
+                <td>${itemsCount}</td>
+                <td>₹ ${Number(total).toFixed(2)}</td>
+                <td>${timeText}</td>
+                <td><span class="${badgeClass}">${status}</span></td>
+                <td><a class="btn btn-sm btn-outline-light" href="/order/${o.id}">View</a></td>
+              </tr>
+            `;
+          }).join("");
+        })
+        .catch(() => {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">Could not load orders.</td></tr>';
+        });
+    })();
+  </script>
+{% endblock %}
+

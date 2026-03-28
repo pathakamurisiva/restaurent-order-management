@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Orders - Bella Vista{% endblock %}
+{% block page_title %}Orders{% endblock %}
+{% block page_action %}
+  <a class="btn btn-outline-light" href="{{ url_for('kitchen') }}"><i class="bi bi-person-workspace me-2"></i>Kitchen</a>
+{% endblock %}
+
+{% block content %}
+  {% set gst_rate = 0.05 %}
+
+  <div class="lux-card p-3 mb-3">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <div class="nav nav-pills orders-tabs" role="tablist">
+        {% set active_status = status or '' %}
+        <a class="nav-link {% if not active_status %}active{% endif %}" href="{{ url_for('orders') }}">All</a>
+        <a class="nav-link {% if active_status == 'pending' %}active{% endif %}" href="{{ url_for('orders', status='pending') }}">Pending</a>
+        <a class="nav-link {% if active_status == 'preparing' %}active{% endif %}" href="{{ url_for('orders', status='preparing') }}">Preparing</a>
+        <a class="nav-link {% if active_status == 'served' %}active{% endif %}" href="{{ url_for('orders', status='served') }}">Served</a>
+        <a class="nav-link {% if active_status == 'paid' %}active{% endif %}" href="{{ url_for('orders', status='paid') }}">Paid</a>
+      </div>
+
+      <form method="get" class="d-flex align-items-end gap-2 flex-wrap">
+        {% if status %}
+          <input type="hidden" name="status" value="{{ status }}" />
+        {% endif %}
+        <div>
+          <label class="form-label small text-white-50 mb-1" for="date">Date</label>
+          <input id="date" name="date" type="date" class="form-control luxury-input" value="{{ date_str }}" />
+        </div>
+        <button type="submit" class="btn btn-lux-accent">Filter</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    {% for order in orders_list %}
+      {% set subtotal = order.total_amount|float %}
+      {% set grand = (subtotal * (1 + gst_rate))|round(2) %}
+      {% set item_count = order.order_items|length %}
+      {% if order.status == 'pending' %}
+        {% set badge = 'badge-amber' %}
+      {% elif order.status == 'preparing' %}
+        {% set badge = 'badge-blue' %}
+      {% elif order.status == 'served' %}
+        {% set badge = 'badge-green' %}
+      {% else %}
+        {% set badge = 'badge-gray' %}
+      {% endif %}
+
+      <div class="col-12 col-lg-6">
+        <div class="order-card lux-card p-3" style="animation-delay:{{ loop.index0 * 0.1 }}s">
+          <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+            <div>
+              <div class="fw-bold fs-5">Order #{{ order.id }}</div>
+              <div class="text-white-50 small">Table {{ order.table.table_number }} • {{ item_count }} items</div>
+              <div class="text-white-50 small mt-1">
+                Elapsed: <span class="elapsed-live" data-created-at="{{ order.created_at.strftime('%Y-%m-%dT%H:%M:%S') }}">--</span>
+              </div>
+            </div>
+            <span class="badge {{ badge }} status-pill">{{ order.status|capitalize }}</span>
+          </div>
+
+          <div class="mt-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div>
+              <div class="text-white-50 small">Total (incl. GST)</div>
+              <div class="fs-4 fw-bold" style="color:#f59e0b;">₹ {{ grand }}</div>
+            </div>
+            <div class="d-flex gap-2">
+              <a class="btn btn-sm btn-outline-light" href="{{ url_for('order_detail', order_id=order.id) }}">
+                <i class="bi bi-eye me-1"></i>Details
+              </a>
+              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('order_bill', order_id=order.id) }}">
+                <i class="bi bi-printer me-1"></i>Bill
+              </a>
+            </div>
+          </div>
+
+          <div class="mt-3 d-grid gap-2">
+            {% if order.status == 'pending' %}
+              <form action="{{ url_for('order_status_update', order_id=order.id) }}" method="post">
+                <input type="hidden" name="status" value="preparing" />
+                <button type="submit" class="btn btn-lux-grad-blue">
+                  <i class="bi bi-play-circle me-2"></i>Start Preparing
+                </button>
+              </form>
+            {% elif order.status == 'preparing' %}
+              <form action="{{ url_for('order_status_update', order_id=order.id) }}" method="post">
+                <input type="hidden" name="status" value="served" />
+                <button type="submit" class="btn btn-lux-grad-green">
+                  <i class="bi bi-check-circle me-2"></i>Mark Served
+                </button>
+              </form>
+            {% elif order.status == 'served' %}
+              <form action="{{ url_for('order_pay', order_id=order.id) }}" method="post">
+                <button type="submit" class="btn btn-outline-light">
+                  <i class="bi bi-cash-coin me-2"></i>Mark Paid
+                </button>
+              </form>
+            {% else %}
+              <div class="text-white-50 small">No further actions.</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div class="col-12 text-muted py-4">No orders found.</div>
+    {% endfor %}
+  </div>
+{% endblock %}
+
